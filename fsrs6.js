@@ -45,6 +45,24 @@ function calculate(before,gradeLabel,now=new Date(),retention=.9){
   const delay=minutes!==null?minutes*60000:nextInterval(stability,validRetention)*DAY;
   return {cardId:before?.cardId||null,phase,stability,difficulty,reps,lapses,dueAt:new Date(nowMs+delay).toISOString(),lastReviewAt:new Date(nowMs).toISOString(),algorithm:'fsrs6-local-1',retention:validRetention};
 }
+/* A cautious optional cloze-evidence correction. This is a VocabFlow heuristic,
+   NOT an official FSRS review: it does not change dueAt, phase, reps, lapses,
+   or lastReviewAt. The next full recognition review uses the adjusted D and S. */
+function applyClozeEvidence(before,correct,now=new Date(),eventId=null){
+  if(!before||!(before.reps>0))throw new Error('只有学过的认识卡能接受填空辅助信号');
+  const at=now instanceof Date?now:new Date(now);
+  if(!Number.isFinite(at.getTime()))throw new Error('填空练习时间无效');
+  const day=[at.getFullYear(),String(at.getMonth()+1).padStart(2,'0'),String(at.getDate()).padStart(2,'0')].join('-');
+  if(before.lastClozeDay===day)return {state:{...before},applied:false,day};
+  const s=clamp(Number(before.stability)||.01,.01,36500);
+  const d=clamp(Number(before.difficulty)||5,1,10);
+  // Correct: modest positive evidence. Incorrect: modest negative evidence.
+  // These small, capped shifts must not be interpreted as calibrated FSRS weights.
+  const stability=clamp(s*(correct?1.04:.94),.01,36500);
+  const difficulty=clamp(d+(correct?-.06:.12),1,10);
+  const state={...before,stability,difficulty,lastClozeDay:day,lastClozeAt:at.toISOString(),lastClozeEventId:eventId,clozeEvidenceCount:(before.clozeEvidenceCount||0)+1};
+  return {state,applied:true,day};
+}
 function daysUntil(iso,now=new Date()){return Math.ceil((Date.parse(iso)-now.getTime())/DAY)}
-global.VFFSRS={calculate,forgetting,nextInterval,daysUntil,version:'fsrs6-local-1',weights:W};
+global.VFFSRS={calculate,forgetting,nextInterval,daysUntil,applyClozeEvidence,version:'fsrs6-local-1',weights:W};
 })(window);

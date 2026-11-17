@@ -67,12 +67,52 @@ async function recordRating({sessionId,cardId,rating,correct=null,retention=.9})
     const before=rReq.result||null;
     const now=new Date();
     const next=global.VFFSRS.calculate(before?{...before,cardId}:{cardId,reps:0},rating,now,retention);
-    const id=uuid(),event={id,sessionId,cardId,wordId:cardId.split(':').slice(1).join(':'),mode:ses.mode,kind:ses.kind,rating,correct,reviewedAt:now.toISOString(),before,after:next,sessionBefore:{...ses,pending:[...ses.pending]}};
+    const id=uuid();
+    if(before){for(const key of ['lastClozeDay','lastClozeAt','lastClozeEventId','clozeEvidenceCount'])if(before[key]!==undefined)next[key]=before[key]}
+    next.lastMutationEventId=id;
+    const event={id,sessionId,cardId,wordId:cardId.split(':').slice(1).join(':'),mode:ses.mode,kind:ses.kind,rating,correct,reviewedAt:now.toISOString(),before,after:next,sessionBefore:{...ses,pending:[...ses.pending]}};
     const updated={...ses,pending:ses.pending.slice(1),completed:ses.completed+1,undoEventId:id,updatedAt:now.toISOString()};
     states.put(next);logs.put(event);sessions.put(updated);setResult({event,state:next,session:updated});
    };
   };
  });}
+/* Optional letter-completion evidence updates the RECOGNITION state with
+   a bounded weak signal. It never creates an independent mandatory review. */
+async function recordCloze({sessionId,cardId,positions,answers,revealed=false}){
+ if(!Array.isArray(positions)||!Array.isArray(answers)||positions.length!==answers.length||positions.length<1||positions.length>20)throw new Error('字母填空提交数据无效');
+ if(new Set(positions).size!==positions.length||positions.some(n=>!Number.isSafeInteger(n)||n<0))throw new Error('填空位置无效');
+ await open();
+ return transact(['review_states','review_logs','sessions','cards','words'],'readwrite',(tx,setResult)=>{
+  const states=tx.objectStore('review_states'),logs=tx.objectStore('review_logs'),sessions=tx.objectStore('sessions');
+  sessions.get(sessionId).onsuccess=e=>{
+   const ses=e.target.result;
+   if(!ses||ses.mode!=='spelling'||ses.pending[0]!==cardId){tx.abort();return}
+   tx.objectStore('cards').get(cardId).onsuccess=ce=>{
+    const card=ce.target.result;
+    if(!card||card.mode!=='spelling'){tx.abort();return}
+    tx.objectStore('words').get(card.wordId).onsuccess=we=>{
+     const word=we.target.result;
+     if(!word){tx.abort();return}
+     if(positions.some(pos=>pos>=word.en.length||!/[A-Za-z]/.test(word.en[pos]))){tx.abort();return}
+     const correct=!revealed&&positions.every((pos,i)=>String(answers[i]||'').trim().toLowerCase()===word.en[pos].toLowerCase());
+     const recognitionCardId=`recognition:${card.wordId}`;
+     states.get(recognitionCardId).onsuccess=se=>{
+      const before=se.target.result;
+      if(!before||!(before.reps>0)){tx.abort();return}
+      const now=new Date(),id=uuid();
+      const effect=global.VFFSRS.applyClozeEvidence(before,correct,now,id);
+      const after=effect.state;
+      if(effect.applied)after.lastMutationEventId=id;
+      const event={id,sessionId,cardId:recognitionCardId,sourceCardId:cardId,wordId:card.wordId,mode:'spelling',kind:'cloze',activity:'cloze',rating:correct?'记得':'忘记',correct,revealed,positions:[...positions],answers:answers.map(v=>String(v||'').slice(0,1)),auxiliary:true,auxiliaryApplied:effect.applied,reviewedAt:now.toISOString(),before,after,sessionBefore:{...ses,pending:[...ses.pending]}};
+      const updated={...ses,pending:ses.pending.slice(1),completed:ses.completed+1,undoEventId:id,updatedAt:now.toISOString()};
+      if(effect.applied)states.put(after);
+      logs.put(event);sessions.put(updated);setResult({event,state:after,session:updated,correct,auxiliaryApplied:effect.applied});
+     };
+    };
+   };
+  };
+ });
+}
 async function undoLast(sessionId){await open();return transact(['review_states','review_logs','sessions'],'readwrite',(tx,setResult)=>{
  const sesStore=tx.objectStore('sessions'),logStore=tx.objectStore('review_logs'),stateStore=tx.objectStore('review_states');
  sesStore.get(sessionId).onsuccess=e=>{
@@ -83,8 +123,8 @@ async function undoLast(sessionId){await open();return transact(['review_states'
    if(!log){setResult(false);return}
    stateStore.get(log.cardId).onsuccess=evs=>{
     const current=evs.target.result;
-    if(!current||current.lastReviewAt!==log.after.lastReviewAt){setResult(false);return}
-    if(log.before)stateStore.put(log.before);else stateStore.delete(log.cardId);
+    if(!current||(log.activity==='cloze'? (log.auxiliaryApplied?current.lastMutationEventId!==log.id:current.lastMutationEventId!==log.after?.lastMutationEventId) : (log.after?.lastMutationEventId?current.lastMutationEventId!==log.id:current.lastReviewAt!==log.after.lastReviewAt))){setResult(false);return}
+    if(log.activity==='cloze'&&!log.auxiliaryApplied){ /* No state change was made for this repeated-day practice. */ }else if(log.before)stateStore.put(log.before);else stateStore.delete(log.cardId);
     logStore.delete(log.id);
     sesStore.put({...log.sessionBefore,undoEventId:null});setResult({log,session:{...log.sessionBefore,undoEventId:null}});
    };
@@ -156,5 +196,5 @@ async function restoreBackup(backup){validateBackup(backup);await open();await t
 });}
 async function exportBackup(){return {app:'VocabFlow',formatVersion:2,algorithmVersion:'fsrs6-local-1',exportedAt:new Date().toISOString(),tables:await snapshot()}}
 async function savePreferences(patch){const prev=await get('settings','preferences');const next={...prev,...patch,id:'preferences'};await put('settings',next);return next}
-global.VFStorage={open,initialize,snapshot,all,get,put,beginSession,recordRating,undoLast,importDeck,readCSV,validateBackup,restoreBackup,exportBackup,savePreferences,uuid,DB_NAME,DB_VERSION};
+global.VFStorage={open,initialize,snapshot,all,get,put,beginSession,recordRating,recordCloze,undoLast,importDeck,readCSV,validateBackup,restoreBackup,exportBackup,savePreferences,uuid,DB_NAME,DB_VERSION};
 })(window);
