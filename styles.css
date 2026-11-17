@@ -98,148 +98,139 @@ body{color:var(--ink)}
 @media(max-width:720px){.cloze-word{padding:15px 8px;gap:3px 1px;min-height:80px}.cloze-letter{font-size:22px;width:22px;height:40px}.cloze-slot{font-size:22px;width:30px;height:42px}.cloze-guide{font-size:12px}.cloze-bonus-note{font-size:11px!important}}
 @media(max-height:550px) and (orientation:landscape){.cloze-prompt{min-height:auto;padding:12px 16px}.cloze-word{min-height:60px;padding:8px}.cloze-guide{margin:8px auto 12px}.cloze-footer{margin-top:10px}}
 
-/* Phase 2.2: tablet-landscape / desktop full-width secondary pages.
-   A 16:10 Redmi K Pad landscape viewport uses the same navigation structure
-   as the home page. Portrait remains a single-column, bottom-nav experience.
-   Avoid the fixed 790px focus shell which caused large blank side margins. */
-@media (min-width:1200px),
-       (orientation:landscape) and (min-width:900px) and (max-aspect-ratio:2/1) {
-  .app-shell.focus-page {
-    display:grid;
-    grid-template-columns:236px minmax(0,1fr);
-    width:100%;
-    min-height:100dvh;
-  }
-  .focus-page .sidebar {
-    display:flex!important;
-    min-width:0;
-  }
-  .focus-page .topbar {display:flex!important;}
-  .focus-page .mobile-nav {display:none!important;}
-  .focus-page .main-frame {min-width:0;min-height:100dvh;}
-  .focus-page .content {
-    width:100%;
-    max-width:none;
-    min-width:0;
-    margin:0;
-    min-height:calc(100dvh - 78px);
-    padding:20px clamp(16px,2.4vw,38px) 22px;
-  }
+/* Phase 2.3: immersive study / cloze modes. The application shell has no
+   sidebar, no top toolbar and no bottom navigation on these two routes. */
+.app-shell.focus-page {
+  display:block !important;
+  grid-template-columns:minmax(0,1fr) !important;
+  width:100%;
+  min-height:100dvh;
+}
+.focus-page .sidebar, .focus-page .topbar, .focus-page .mobile-nav {display:none !important;}
+.focus-page .main-frame {display:block;width:100%;min-width:0;min-height:100dvh;}
+.focus-page .content {
+  box-sizing:border-box;
+  display:flex;
+  width:100%;max-width:none;min-width:0;
+  min-height:100dvh;
+  padding:clamp(14px,2vh,28px) clamp(16px,2.4vw,50px) clamp(16px,2.1vh,30px) !important;
+  margin:0;
+  align-items:stretch;
+  justify-content:center;
+}
+.focus-page .focus-shell {
+  width:100%;max-width:none;min-width:0;
+  min-height:calc(100dvh - clamp(30px,4.2vh,58px));
+  padding:0;
+  margin:0;
+}
+.focus-page .focus-head {
+  display:grid;
+  grid-template-columns:minmax(105px,1fr) auto minmax(105px,1fr);
+  align-items:center;
+  gap:10px;
+  width:100%;
+}
+.focus-page .focus-label {min-width:0;text-align:center;}
+.focus-page .focus-label b {font-size:clamp(13px,1.25vw,17px);}
+.focus-mode-mark {
+  justify-self:end;
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  color:var(--muted);
+  font-size:11px;
+  font-weight:650;
+  white-space:nowrap;
+}
+.focus-page .back-link {white-space:nowrap;justify-self:start;min-height:44px;}
+.focus-page .cloze-workspace {min-width:0;}
+.focus-page .flash-card,.focus-page .spelling-prompt{max-width:none;width:100%;}
+.focus-page .focus-actions{min-width:0;}
+
+/* Landscape tablet and desktop: full-width two-column learning workspace. */
+@media (orientation:landscape) and (min-width:900px) and (min-height:470px),
+       (min-width:1200px) {
   .focus-page .focus-shell {
     display:grid;
-    grid-template-columns:minmax(0,1.04fr) minmax(0,.96fr);
-    grid-template-rows:auto auto auto auto auto auto;
-    align-content:start;
+    grid-template-columns:minmax(0,1.07fr) minmax(0,.93fr);
+    grid-template-rows:auto auto minmax(0,1fr) auto auto;
+    column-gap:clamp(15px,2.2vw,34px);
+    row-gap:clamp(9px,1.3vh,16px);
+    align-content:stretch;
     align-items:stretch;
-    column-gap:clamp(14px,1.8vw,24px);
-    row-gap:13px;
-    width:100%;
-    max-width:none;
+  }
+  .focus-page .focus-shell > .focus-head {grid-column:1/-1;grid-row:1;margin:0;}
+  .focus-page .focus-shell > .progress-track {grid-column:1/-1;grid-row:2;margin:0;}
+  .focus-page .focus-shell > .flash-card,
+  .focus-page .focus-shell > .spelling-prompt {
+    grid-column:1;
+    grid-row:3;
     min-width:0;
+    min-height:clamp(290px,calc(100dvh - 160px),780px);
+    padding:clamp(22px,2.6vw,48px);
+    border-radius:clamp(18px,2vw,28px);
     margin:0;
-    padding:0;
-    min-height:calc(100dvh - 124px);
   }
-  .focus-shell>.focus-head {grid-column:1/-1;grid-row:1;margin:0;min-width:0;}
-  .focus-shell>.progress-track {grid-column:1/-1;grid-row:2;margin:0 0 2px;}
-  /* Recognition: full-width workspace, left answer card / right ratings. */
-  .focus-shell>.flash-card {
-    grid-column:1;grid-row:3 / span 3;
-    width:100%;min-width:0;
-    min-height:clamp(290px,calc(100dvh - 242px),570px);
-    padding:28px clamp(18px,2.2vw,36px);
-  }
-  .focus-shell>.focus-actions {
-    grid-column:2;grid-row:3 / span 3;
-    width:100%;max-width:none;min-width:0;
-    margin:0;
-    align-self:center;
-  }
-  .focus-shell .rating-grid {grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
-  .focus-shell .rating-btn {min-height:68px;}
-  /* Optional cloze: prompt and character inputs use side-by-side panels. */
-  .focus-shell>.spelling-prompt {
-    grid-column:1;grid-row:3 / span 3;
-    width:100%;min-width:0;
-    min-height:clamp(270px,calc(100dvh - 244px),560px);
-    padding:24px;
-  }
-  .focus-shell>.cloze-form {
-    grid-column:2;grid-row:3;
-    width:100%;max-width:none;min-width:0;
-    margin:0;
-    align-self:end;
-  }
-  .focus-shell>.result-box {grid-column:2;grid-row:4;width:100%;margin:0;}
-  .focus-shell>.cloze-footer {grid-column:2;grid-row:5;width:100%;max-width:none;margin:0;}
-  .focus-shell>.empty-panel {grid-column:1/-1;grid-row:3;width:100%;max-width:none;}
-  .focus-shell>.focus-help:not(.cloze-footer) {grid-column:1/-1;}
-  .focus-shell>.focus-bottom-note {
-    grid-column:1/-1;grid-row:6;margin:0;
-    text-align:left;align-self:end;
-  }
-  .focus-shell .cloze-word {
-    background:var(--surface);
-    min-width:0;
-    padding:12px 6px;
-    gap:3px 1px;
-  }
-  .focus-shell .cloze-letter {font-size:clamp(19px,2vw,25px);width:clamp(19px,2.2vw,26px);}
-  .focus-shell .cloze-slot {font-size:21px;width:34px;min-width:34px;height:43px;}
-  .focus-shell .cloze-guide {margin:11px auto 13px;}
-  .focus-shell .spell-buttons {flex-wrap:wrap;}
-}
-@media (orientation:landscape) and (min-width:900px) and (max-width:1199px) and (max-aspect-ratio:2/1) {
-  .app-shell.focus-page {grid-template-columns:200px minmax(0,1fr);}
-  .focus-page .topbar {height:64px;}
-  .focus-page .content {min-height:calc(100dvh - 64px);padding:17px 20px 19px;}
-  .focus-page .focus-shell {min-height:calc(100dvh - 100px);row-gap:10px;}
-  .focus-shell>.flash-card {min-height:clamp(260px,calc(100dvh - 204px),490px);}
-  .focus-shell>.spelling-prompt {min-height:clamp(250px,calc(100dvh - 204px),490px);}
-  .focus-shell .word {font-size:clamp(29px,3vw,39px);}
-  .focus-shell .word-meaning {font-size:18px;}
-  .focus-shell .cloze-letter {font-size:21px;width:21px;}
-  .focus-shell .cloze-slot {font-size:20px;width:32px;min-width:32px;height:42px;}
-  .focus-shell .spelling-prompt h2 {font-size:clamp(19px,2.4vw,25px);}
-}
-/* Small-screen portrait remains the existing mobile/card layout. */
-
-/* The cloze workspace groups the input, feedback and undo controls so they
-   remain together in the right landscape panel and flow naturally in portrait. */
-.cloze-workspace {min-width:0;}
-@media (min-width:1200px),
-       (orientation:landscape) and (min-width:900px) and (max-aspect-ratio:2/1) {
-  .focus-shell>.focus-actions,
-  .focus-shell>.cloze-workspace {
+  .focus-page .focus-shell > .focus-actions,
+  .focus-page .focus-shell > .cloze-workspace {
     grid-column:2;
-    grid-row:3 / span 3;
-    align-self:stretch;
-    width:100%;max-width:none;min-width:0;
-    min-height:clamp(270px,calc(100dvh - 242px),570px);
-    background:var(--surface);
-    border:1px solid var(--line);
-    border-radius:24px;
-    padding:clamp(16px,2.1vw,28px);
-    box-shadow:var(--shadow);
+    grid-row:3;
+    min-width:0;
+    max-width:none;
+    width:100%;
+    min-height:clamp(290px,calc(100dvh - 160px),780px);
     display:flex;
     flex-direction:column;
     justify-content:center;
-    gap:12px;
+    align-items:stretch;
+    gap:clamp(12px,1.5vh,18px);
+    padding:clamp(18px,2.5vw,42px);
     margin:0;
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:clamp(18px,2vw,28px);
+    box-shadow:var(--shadow);
   }
-  .focus-shell>.cloze-workspace .cloze-form {
-    width:100%;max-width:none;margin:0;min-width:0;
-  }
-  .focus-shell>.cloze-workspace .result-box {margin:0;}
-  .focus-shell>.cloze-workspace .cloze-footer {
-    width:100%;max-width:none;margin:0;flex-wrap:wrap;
-  }
-  .focus-shell>.focus-actions .focus-help {flex-wrap:wrap;}
+  .focus-page .focus-shell .rating-grid {grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}
+  .focus-page .focus-shell .rating-btn {min-height:clamp(68px,10vh,94px);}
+  .focus-page .focus-shell .word {font-size:clamp(36px,3.8vw,60px);}
+  .focus-page .focus-shell .word-meaning{font-size:clamp(18px,1.8vw,26px);}
+  .focus-page .focus-shell .spelling-prompt h2{font-size:clamp(22px,2.3vw,36px);}
+  .focus-page .focus-shell .cloze-form {max-width:none;width:100%;margin:0;min-width:0;}
+  .focus-page .focus-shell .cloze-word{max-width:100%;margin-top:10px;padding:18px 10px;background:var(--surface2);gap:3px 2px;}
+  .focus-page .focus-shell .cloze-letter{width:clamp(21px,2.1vw,31px);font-size:clamp(21px,2.3vw,30px);}
+  .focus-page .focus-shell .cloze-slot{width:clamp(31px,3vw,46px);min-width:31px;height:clamp(43px,4vw,54px);font-size:clamp(22px,2.3vw,30px);}
+  .focus-page .focus-shell .cloze-guide{margin:13px auto 18px;}
+  .focus-page .focus-shell .result-box{width:100%;max-width:none;margin:0;}
+  .focus-page .focus-shell .cloze-footer{width:100%;max-width:none;margin:0;flex-wrap:wrap;}
+  .focus-page .focus-shell .focus-help{flex-wrap:wrap;}
+  .focus-page .focus-shell > .empty-panel{grid-column:1/-1;grid-row:3;max-width:none;align-self:stretch;}
+  .focus-page .focus-shell > .focus-help {grid-column:1/-1;grid-row:4;margin:0;}
+  .focus-page .focus-shell > .focus-bottom-note{grid-column:1/-1;grid-row:5;margin:0;text-align:center;align-self:center;}
 }
-@media (orientation:landscape) and (min-width:900px) and (max-width:1199px) and (max-aspect-ratio:2/1) {
-  .focus-shell>.focus-actions,
-  .focus-shell>.cloze-workspace {
-    min-height:clamp(260px,calc(100dvh - 204px),490px);
-    padding:clamp(14px,1.6vw,20px);
-  }
+/* Portrait or a landscape phone too short for side-by-side inputs. */
+@media (max-width:899px),
+       (orientation:portrait) and (max-width:1199px) {
+  .focus-page .focus-shell {display:flex;flex-direction:column;gap:0;}
+  .focus-page .focus-shell > .flash-card {min-height:clamp(275px,42dvh,470px);padding:clamp(22px,3.4vw,38px);}
+  .focus-page .focus-shell > .spelling-prompt {min-height:clamp(195px,27dvh,340px);}
+  .focus-page .focus-shell > .focus-actions {width:100%;max-width:none;margin:clamp(12px,2vh,24px) 0 0;}
+  .focus-page .focus-shell > .cloze-workspace {width:100%;margin-top:clamp(12px,2vh,22px);}
+  .focus-page .focus-shell > .focus-bottom-note {margin-top:auto;padding-top:18px;}
+}
+@media (max-width:560px) {
+  .focus-page .focus-head {grid-template-columns:minmax(74px,1fr) auto minmax(30px,1fr);gap:6px;}
+  .focus-page .focus-mode-mark {font-size:0;gap:0;}
+  .focus-page .focus-mode-mark svg{width:18px;height:18px;}
+  .focus-page .focus-label span{font-size:10px;}
+  .focus-page .flash-card{border-radius:20px;}
+}
+@media (orientation:landscape) and (max-height:540px){
+  .focus-page .content{padding:10px 17px 13px!important;}
+  .focus-page .focus-shell > .flash-card,
+  .focus-page .focus-shell > .spelling-prompt,
+  .focus-page .focus-shell > .focus-actions,
+  .focus-page .focus-shell > .cloze-workspace{min-height:250px;}
+  .focus-page .focus-shell > .flash-card{padding:18px 22px;}
 }
