@@ -97,3 +97,149 @@ body{color:var(--ink)}
 .cloze-footer{max-width:740px;width:100%;margin:17px auto 0}
 @media(max-width:720px){.cloze-word{padding:15px 8px;gap:3px 1px;min-height:80px}.cloze-letter{font-size:22px;width:22px;height:40px}.cloze-slot{font-size:22px;width:30px;height:42px}.cloze-guide{font-size:12px}.cloze-bonus-note{font-size:11px!important}}
 @media(max-height:550px) and (orientation:landscape){.cloze-prompt{min-height:auto;padding:12px 16px}.cloze-word{min-height:60px;padding:8px}.cloze-guide{margin:8px auto 12px}.cloze-footer{margin-top:10px}}
+
+/* Phase 2.2: tablet-landscape / desktop full-width secondary pages.
+   A 16:10 Redmi K Pad landscape viewport uses the same navigation structure
+   as the home page. Portrait remains a single-column, bottom-nav experience.
+   Avoid the fixed 790px focus shell which caused large blank side margins. */
+@media (min-width:1200px),
+       (orientation:landscape) and (min-width:900px) and (max-aspect-ratio:2/1) {
+  .app-shell.focus-page {
+    display:grid;
+    grid-template-columns:236px minmax(0,1fr);
+    width:100%;
+    min-height:100dvh;
+  }
+  .focus-page .sidebar {
+    display:flex!important;
+    min-width:0;
+  }
+  .focus-page .topbar {display:flex!important;}
+  .focus-page .mobile-nav {display:none!important;}
+  .focus-page .main-frame {min-width:0;min-height:100dvh;}
+  .focus-page .content {
+    width:100%;
+    max-width:none;
+    min-width:0;
+    margin:0;
+    min-height:calc(100dvh - 78px);
+    padding:20px clamp(16px,2.4vw,38px) 22px;
+  }
+  .focus-page .focus-shell {
+    display:grid;
+    grid-template-columns:minmax(0,1.04fr) minmax(0,.96fr);
+    grid-template-rows:auto auto auto auto auto auto;
+    align-content:start;
+    align-items:stretch;
+    column-gap:clamp(14px,1.8vw,24px);
+    row-gap:13px;
+    width:100%;
+    max-width:none;
+    min-width:0;
+    margin:0;
+    padding:0;
+    min-height:calc(100dvh - 124px);
+  }
+  .focus-shell>.focus-head {grid-column:1/-1;grid-row:1;margin:0;min-width:0;}
+  .focus-shell>.progress-track {grid-column:1/-1;grid-row:2;margin:0 0 2px;}
+  /* Recognition: full-width workspace, left answer card / right ratings. */
+  .focus-shell>.flash-card {
+    grid-column:1;grid-row:3 / span 3;
+    width:100%;min-width:0;
+    min-height:clamp(290px,calc(100dvh - 242px),570px);
+    padding:28px clamp(18px,2.2vw,36px);
+  }
+  .focus-shell>.focus-actions {
+    grid-column:2;grid-row:3 / span 3;
+    width:100%;max-width:none;min-width:0;
+    margin:0;
+    align-self:center;
+  }
+  .focus-shell .rating-grid {grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+  .focus-shell .rating-btn {min-height:68px;}
+  /* Optional cloze: prompt and character inputs use side-by-side panels. */
+  .focus-shell>.spelling-prompt {
+    grid-column:1;grid-row:3 / span 3;
+    width:100%;min-width:0;
+    min-height:clamp(270px,calc(100dvh - 244px),560px);
+    padding:24px;
+  }
+  .focus-shell>.cloze-form {
+    grid-column:2;grid-row:3;
+    width:100%;max-width:none;min-width:0;
+    margin:0;
+    align-self:end;
+  }
+  .focus-shell>.result-box {grid-column:2;grid-row:4;width:100%;margin:0;}
+  .focus-shell>.cloze-footer {grid-column:2;grid-row:5;width:100%;max-width:none;margin:0;}
+  .focus-shell>.empty-panel {grid-column:1/-1;grid-row:3;width:100%;max-width:none;}
+  .focus-shell>.focus-help:not(.cloze-footer) {grid-column:1/-1;}
+  .focus-shell>.focus-bottom-note {
+    grid-column:1/-1;grid-row:6;margin:0;
+    text-align:left;align-self:end;
+  }
+  .focus-shell .cloze-word {
+    background:var(--surface);
+    min-width:0;
+    padding:12px 6px;
+    gap:3px 1px;
+  }
+  .focus-shell .cloze-letter {font-size:clamp(19px,2vw,25px);width:clamp(19px,2.2vw,26px);}
+  .focus-shell .cloze-slot {font-size:21px;width:34px;min-width:34px;height:43px;}
+  .focus-shell .cloze-guide {margin:11px auto 13px;}
+  .focus-shell .spell-buttons {flex-wrap:wrap;}
+}
+@media (orientation:landscape) and (min-width:900px) and (max-width:1199px) and (max-aspect-ratio:2/1) {
+  .app-shell.focus-page {grid-template-columns:200px minmax(0,1fr);}
+  .focus-page .topbar {height:64px;}
+  .focus-page .content {min-height:calc(100dvh - 64px);padding:17px 20px 19px;}
+  .focus-page .focus-shell {min-height:calc(100dvh - 100px);row-gap:10px;}
+  .focus-shell>.flash-card {min-height:clamp(260px,calc(100dvh - 204px),490px);}
+  .focus-shell>.spelling-prompt {min-height:clamp(250px,calc(100dvh - 204px),490px);}
+  .focus-shell .word {font-size:clamp(29px,3vw,39px);}
+  .focus-shell .word-meaning {font-size:18px;}
+  .focus-shell .cloze-letter {font-size:21px;width:21px;}
+  .focus-shell .cloze-slot {font-size:20px;width:32px;min-width:32px;height:42px;}
+  .focus-shell .spelling-prompt h2 {font-size:clamp(19px,2.4vw,25px);}
+}
+/* Small-screen portrait remains the existing mobile/card layout. */
+
+/* The cloze workspace groups the input, feedback and undo controls so they
+   remain together in the right landscape panel and flow naturally in portrait. */
+.cloze-workspace {min-width:0;}
+@media (min-width:1200px),
+       (orientation:landscape) and (min-width:900px) and (max-aspect-ratio:2/1) {
+  .focus-shell>.focus-actions,
+  .focus-shell>.cloze-workspace {
+    grid-column:2;
+    grid-row:3 / span 3;
+    align-self:stretch;
+    width:100%;max-width:none;min-width:0;
+    min-height:clamp(270px,calc(100dvh - 242px),570px);
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:24px;
+    padding:clamp(16px,2.1vw,28px);
+    box-shadow:var(--shadow);
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    gap:12px;
+    margin:0;
+  }
+  .focus-shell>.cloze-workspace .cloze-form {
+    width:100%;max-width:none;margin:0;min-width:0;
+  }
+  .focus-shell>.cloze-workspace .result-box {margin:0;}
+  .focus-shell>.cloze-workspace .cloze-footer {
+    width:100%;max-width:none;margin:0;flex-wrap:wrap;
+  }
+  .focus-shell>.focus-actions .focus-help {flex-wrap:wrap;}
+}
+@media (orientation:landscape) and (min-width:900px) and (max-width:1199px) and (max-aspect-ratio:2/1) {
+  .focus-shell>.focus-actions,
+  .focus-shell>.cloze-workspace {
+    min-height:clamp(260px,calc(100dvh - 204px),490px);
+    padding:clamp(14px,1.6vw,20px);
+  }
+}
