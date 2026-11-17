@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="theme-color" content="#5265db" />
+<title>VocabFlow 安装自检</title>
+<link rel="manifest" href="./manifest.webmanifest" />
+<style>body{font:16px/1.65 system-ui,-apple-system,sans-serif;max-width:760px;margin:24px auto;padding:0 18px;color:#15223b;background:#f5f7fb}h1{font-size:25px}.item{background:white;border:1px solid #e1e6f0;padding:14px 16px;border-radius:12px;margin:10px 0}.ok{color:#18794e}.bad{color:#c52828}.neutral{color:#565c69}button,a.btn{background:#5265db;color:#fff;border:0;border-radius:10px;padding:12px 20px;font:inherit;display:inline-block;text-decoration:none;margin:6px 6px 6px 0}button:disabled{opacity:.5}small{color:#5b6474}code{word-break:break-all}</style>
+</head><body><h1>VocabFlow · PWA 安装自检</h1><p>如果 Chrome 仍然只出现「创建快捷方式」，请使用此页面检查网站资源。自检不会修改或清空你的学习记录。</p>
+<div id="results">检测中…</div><div><button id="install" disabled>安装 VocabFlow（若浏览器支持）</button><a class="btn" href="./index.html">返回 VocabFlow</a></div><p><small>说明：自检项目通过，不代表 Chrome 一定提供安装弹窗；还取决于浏览器策略和安装状态。按钮仅在浏览器提供安装事件时可用。</small></p>
+<script>
+let evt=null; const rows=[]; const out=document.querySelector('#results');
+function add(name,ok,detail){rows.push({name,ok,detail});out.innerHTML=rows.map(x=>`<div class="item"><strong class="${x.ok===true?'ok':x.ok===false?'bad':'neutral'}">${x.ok===true?'✓':x.ok===false?'×':'·'} ${x.name}</strong><div><small>${x.detail||''}</small></div></div>`).join('')}
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();evt=e;document.querySelector('#install').disabled=false;add('浏览器提供安装提示',true,'可以点击上方「安装 VocabFlow」按钮')});
+window.addEventListener('appinstalled',()=>add('应用安装事件',true,'浏览器已报告安装事件'));
+document.querySelector('#install').addEventListener('click',async()=>{if(!evt)return;await evt.prompt();evt=null;document.querySelector('#install').disabled=true});
+(async()=>{
+ add('安全上下文（HTTPS）',window.isSecureContext,location.origin);
+ add('当前打开模式',null,matchMedia('(display-mode: standalone)').matches?'独立应用模式':'浏览器页面模式');
+ const link=document.querySelector('head link[rel="manifest"]');add('HEAD 中存在 manifest 引用',Boolean(link),link?.getAttribute('href')||'未找到');
+ try{const u=new URL(link?.getAttribute('href')||'manifest.webmanifest',location.href);const r=await fetch(u,{cache:'no-store'});const m=await r.json();const valid=Boolean((m.name||m.short_name)&&m.start_url&&m.display&&Array.isArray(m.icons)&&m.icons.some(x=>x.sizes?.includes('192x192'))&&m.icons.some(x=>x.sizes?.includes('512x512')));add('manifest 可读取且包含必要字段',r.ok&&valid,`HTTP ${r.status} · display=${m.display}, start_url=${m.start_url}`);
+ for(const icon of m.icons||[]){const ir=await fetch(new URL(icon.src,u),{cache:'no-store'});add(`图标 ${icon.sizes}`,ir.ok,`HTTP ${ir.status}`)}
+ }catch(e){add('manifest / 图标检查',false,String(e))}
+ if(!('serviceWorker' in navigator)){add('Service Worker 支持',false,'当前浏览器不支持');return}
+ try{const reg=await navigator.serviceWorker.getRegistration('./');add('Service Worker 已注册',Boolean(reg?.active),reg?.active?.scriptURL||'尚未激活；可返回主页等待离线资源准备完成');}catch(e){add('Service Worker 状态',false,String(e))}
+})();
+</script></body></html>
