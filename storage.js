@@ -52,18 +52,45 @@ async function initialize(){await open();const preferences=await get('settings',
  });}
 async function snapshot(){await open();const entries=await Promise.all(TABLES.map(async name=>[name,await all(name)]));return Object.fromEntries(entries)}
 async function beginSession(sessionId,mode,kind,cardIds,deckId=null){
-  const session={id:sessionId,mode,kind,deckId,pending:[...cardIds],completed:0,undoEventId:null,updatedAt:new Date().toISOString()};
+  const now=new Date().toISOString();
+  const session={id:sessionId,mode,kind,deckId,pending:[...cardIds],batchCards:[...cardIds],stage:kind==='new'?'preview':'cards',completed:0,undoEventId:null,createdAt:now,updatedAt:now};
   await put('sessions',session);return session;
 }
+/* A first-contact list must be acknowledged before any new word can become a quiz card.
+   Save the introduction flags and session transition in one IndexedDB transaction. */
+async function completeIntroduction(sessionId){
+ await open();return transact(['sessions','cards'],'readwrite',(tx,setResult)=>{
+  const sessions=tx.objectStore('sessions'),cards=tx.objectStore('cards');
+  sessions.get(sessionId).onsuccess=e=>{
+   const ses=e.target.result;
+   if(!ses||ses.kind!=='new'||!ses.pending?.length){tx.abort();return}
+   const now=new Date().toISOString();let remaining=ses.pending.length;
+   for(const cardId of ses.pending){
+    cards.get(cardId).onsuccess=ev=>{
+     const card=ev.target.result;
+     if(!card||card.mode!=='recognition'){tx.abort();return}
+     if(!card.introducedAt)cards.put({...card,introducedAt:now});
+     if(--remaining===0){
+      const updated={...ses,stage:'cards',introductionCompletedAt:now,updatedAt:now};
+      sessions.put(updated);setResult(updated);
+     }
+    };
+   }
+  };
+ });
+}
 async function recordRating({sessionId,cardId,rating,correct=null,retention=.9}){
- await open();return transact(['review_states','review_logs','sessions'],'readwrite',(tx,setResult)=>{
+ await open();return transact(['review_states','review_logs','sessions','cards'],'readwrite',(tx,setResult)=>{
   const states=tx.objectStore('review_states');const logs=tx.objectStore('review_logs');const sessions=tx.objectStore('sessions');
   const sReq=sessions.get(sessionId);
   sReq.onsuccess=()=>{
    const ses=sReq.result;
-   if(!ses||ses.pending[0]!==cardId){tx.abort();return}
-   const rReq=states.get(cardId);
-   rReq.onsuccess=()=>{
+   if(!ses||ses.pending[0]!==cardId||(ses.kind==='new'&&ses.stage!=='cards')){tx.abort();return}
+   tx.objectStore('cards').get(cardId).onsuccess=cardEvent=>{
+    const card=cardEvent.target.result;
+    if(!card||(ses.kind==='new'&&!card.introducedAt)){tx.abort();return}
+    const rReq=states.get(cardId);
+    rReq.onsuccess=()=>{
     const before=rReq.result||null;
     const now=new Date();
     const next=global.VFFSRS.calculate(before?{...before,cardId}:{cardId,reps:0},rating,now,retention);
@@ -73,6 +100,7 @@ async function recordRating({sessionId,cardId,rating,correct=null,retention=.9})
     const event={id,sessionId,cardId,wordId:cardId.split(':').slice(1).join(':'),mode:ses.mode,kind:ses.kind,rating,correct,reviewedAt:now.toISOString(),before,after:next,sessionBefore:{...ses,pending:[...ses.pending]}};
     const updated={...ses,pending:ses.pending.slice(1),completed:ses.completed+1,undoEventId:id,updatedAt:now.toISOString()};
     states.put(next);logs.put(event);sessions.put(updated);setResult({event,state:next,session:updated});
+    };
    };
   };
  });}
@@ -145,7 +173,7 @@ function readCSV(text){
  row.push(cell);if(row.some(v=>v.trim()))rows.push(row);
  if(rows.length<2)throw new Error('CSV 至少需要表头和一行单词');
  const head=rows.shift().map(v=>v.trim().toLowerCase());
- const aliases={en:['word','en','english','单词','英文'],cn:['meaning','cn','translation','释义','中文'],ipa:['ipa','phonetic','音标'],pos:['pos','part of speech','词性'],ex:['example','sentence','例句'],cnEx:['example_cn','sentence_cn','例句翻译'],example:['collocation','phrase','搭配'],alternate:['aliases','alternatives','变体']};
+ const aliases={en:['word','en','english','单词','英文'],cn:['meaning','cn','translation','释义','中文'],ipa:['ipa','phonetic','音标'],pos:['pos','part of speech','词性'],ex:['example','sentence','例句'],cnEx:['example_cn','sentence_cn','例句翻译'],example:['collocation','phrase','搭配'],alternate:['aliases','alternatives','变体'],frequency:['frequency','freq','frequency_count','词频','频次','出现次数','频率'],priority:['priority','rank','priority_level','优先级','词汇等级','重要程度']};
  const idx={};for(const [k,vals] of Object.entries(aliases))idx[k]=head.findIndex(h=>vals.includes(h));
  if(idx.en<0||idx.cn<0)throw new Error('CSV 表头需要包含 word、meaning（或 单词、释义）');
  return rows.map(r=>Object.fromEntries(Object.keys(idx).map(k=>[k,idx[k]>=0?(r[idx[k]]||'').trim():''])));
@@ -154,7 +182,7 @@ function sanitizeWord(item){
  if(!item||typeof item!=='object')return null;
  const en=String(item.en||item.word||item.单词||'').trim(),cn=String(item.cn||item.meaning||item.释义||'').trim();
  if(!en||!cn||en.length>100||cn.length>1200)return null;
- return {en,cn,ipa:String(item.ipa||'').slice(0,120),pos:String(item.pos||'').slice(0,40),ex:String(item.ex||item.sentence||'').slice(0,800),cnEx:String(item.cnEx||'').slice(0,800),example:String(item.example||'').slice(0,250),aliases:Array.isArray(item.aliases)?item.aliases.map(String).slice(0,12):String(item.alternate||'').split(/[|;]/).map(v=>v.trim()).filter(Boolean).slice(0,12)};
+ return {en,cn,ipa:String(item.ipa||'').slice(0,120),pos:String(item.pos||'').slice(0,40),ex:String(item.ex||item.sentence||'').slice(0,800),cnEx:String(item.cnEx||'').slice(0,800),example:String(item.example||'').slice(0,250),aliases:Array.isArray(item.aliases)?item.aliases.map(String).slice(0,12):String(item.alternate||'').split(/[|;]/).map(v=>v.trim()).filter(Boolean).slice(0,12),frequency:String(item.frequency??item.freq??item.词频??'').trim().slice(0,50),priority:String(item.priority??item.rank??item.优先级??'').trim().slice(0,50)};
 }
 async function importDeck(name,fileText,format){
  const entries=format==='csv'?readCSV(fileText):JSON.parse(fileText);
@@ -167,8 +195,9 @@ async function importDeck(name,fileText,format){
  clean.forEach((w,i)=>{
   const sig=`${w.en.toLowerCase()}|${w.pos}|${w.cn}`;if(seen.has(sig))return;seen.add(sig);
   const wordId=signatures.get(sig)||uuid();
-  if(!signatures.has(sig)){signatures.set(sig,wordId);additions.push({...w,id:wordId,createdAt:new Date().toISOString()})}
-  link.push({id:`${deckId}:${wordId}`,deckId,wordId,order:i});
+  const {frequency,priority,...content}=w;
+  if(!signatures.has(sig)){signatures.set(sig,wordId);additions.push({...content,id:wordId,createdAt:new Date().toISOString()})}
+  link.push({id:`${deckId}:${wordId}`,deckId,wordId,order:i,frequency,priority});
  });
  const deck={id:deckId,name:deckName,subtitle:`导入词书 · ${link.length} 词`,createdAt:new Date().toISOString(),sample:false};
  await transact(['decks','words','deck_words','cards','settings'],'readwrite',tx=>{
@@ -196,5 +225,5 @@ async function restoreBackup(backup){validateBackup(backup);await open();await t
 });}
 async function exportBackup(){return {app:'VocabFlow',formatVersion:2,algorithmVersion:'fsrs6-local-1',exportedAt:new Date().toISOString(),tables:await snapshot()}}
 async function savePreferences(patch){const prev=await get('settings','preferences');const next={...prev,...patch,id:'preferences'};await put('settings',next);return next}
-global.VFStorage={open,initialize,snapshot,all,get,put,beginSession,recordRating,recordCloze,undoLast,importDeck,readCSV,validateBackup,restoreBackup,exportBackup,savePreferences,uuid,DB_NAME,DB_VERSION};
+global.VFStorage={open,initialize,snapshot,all,get,put,beginSession,completeIntroduction,recordRating,recordCloze,undoLast,importDeck,readCSV,validateBackup,restoreBackup,exportBackup,savePreferences,uuid,DB_NAME,DB_VERSION};
 })(window);
