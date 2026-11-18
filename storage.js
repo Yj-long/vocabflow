@@ -51,9 +51,9 @@ async function initialize(){await open();const preferences=await get('settings',
   tx.objectStore('settings').put({id:'preferences',dailyNewGoal:15,theme:'light',selectedDeckId:'starter',targetRetention:.9,schemaVersion:2,algorithmVersion:'fsrs6-local-1'});
  });}
 async function snapshot(){await open();const entries=await Promise.all(TABLES.map(async name=>[name,await all(name)]));return Object.fromEntries(entries)}
-async function beginSession(sessionId,mode,kind,cardIds,deckId=null){
+async function beginSession(sessionId,mode,kind,cardIds,deckId=null,options={}){
   const now=new Date().toISOString();
-  const session={id:sessionId,mode,kind,deckId,pending:[...cardIds],batchCards:[...cardIds],stage:kind==='new'?'preview':'cards',completed:0,undoEventId:null,createdAt:now,updatedAt:now};
+  const session={id:sessionId,mode,kind,deckId,pending:[...cardIds],batchCards:[...cardIds],stage:options.stage||(kind==='new'?'preview':'cards'),completed:0,undoEventId:null,createdAt:now,updatedAt:now};
   await put('sessions',session);return session;
 }
 /* A first-contact list must be acknowledged before any new word can become a quiz card.
@@ -63,7 +63,7 @@ async function completeIntroduction(sessionId){
   const sessions=tx.objectStore('sessions'),cards=tx.objectStore('cards');
   sessions.get(sessionId).onsuccess=e=>{
    const ses=e.target.result;
-   if(!ses||ses.kind!=='new'||!ses.pending?.length){tx.abort();return}
+   if(!ses||!['new','favorite'].includes(ses.kind)||!ses.pending?.length){tx.abort();return}
    const now=new Date().toISOString();let remaining=ses.pending.length;
    for(const cardId of ses.pending){
     cards.get(cardId).onsuccess=ev=>{
@@ -85,10 +85,10 @@ async function recordRating({sessionId,cardId,rating,correct=null,retention=.9})
   const sReq=sessions.get(sessionId);
   sReq.onsuccess=()=>{
    const ses=sReq.result;
-   if(!ses||ses.pending[0]!==cardId||(ses.kind==='new'&&ses.stage!=='cards')){tx.abort();return}
+   if(!ses||ses.pending[0]!==cardId||(['new','favorite'].includes(ses.kind)&&ses.stage!=='cards')){tx.abort();return}
    tx.objectStore('cards').get(cardId).onsuccess=cardEvent=>{
     const card=cardEvent.target.result;
-    if(!card||(ses.kind==='new'&&!card.introducedAt)){tx.abort();return}
+    if(!card||(ses.kind==='new'||ses.kind==='favorite')&&!card.introducedAt){tx.abort();return}
     const rReq=states.get(cardId);
     rReq.onsuccess=()=>{
     const before=rReq.result||null;
@@ -205,8 +205,57 @@ async function importDeck(name,fileText,format){
    for(const word of additions){tx.objectStore('words').put(word);for(const mode of ['recognition','spelling'])tx.objectStore('cards').put({id:`${mode}:${word.id}`,wordId:word.id,mode})}
    for(const rel of link)tx.objectStore('deck_words').put(rel);
    tx.objectStore('settings').get('preferences').onsuccess=e=>{let pref=e.target.result;if(pref)tx.objectStore('settings').put({...pref,selectedDeckId:deckId})};
- });return {deck,count:link.length,added:additions.length,skipped:clean.length-seen.size};
+ });await fillMissingUsage(true);return {deck,count:link.length,added:additions.length,skipped:clean.length-seen.size};
 }
+
+async function setFavorite(wordId,favorite){
+ await open();return transact(['words'],'readwrite',(tx,setResult)=>{
+  const store=tx.objectStore('words');store.get(wordId).onsuccess=e=>{
+   const original=e.target.result;
+   if(!original){tx.abort();return}
+   const value={...original,favorite:!!favorite,favoriteAt:favorite?new Date().toISOString():null};
+   store.put(value);setResult(value);
+  };
+ });
+}
+async function updateWordUsage(wordId,values){
+ await open();const fields={example:250,ex:800,cnEx:800};
+ const updates={};for(const [k,limit] of Object.entries(fields)){
+  if(Object.prototype.hasOwnProperty.call(values,k)){
+   if(typeof values[k]!=='string'||values[k].length>limit)throw new Error('词组或例句长度超限');
+   updates[k]=values[k].trim();
+  }
+ }
+ return transact(['words'],'readwrite',(tx,setResult)=>{
+  const store=tx.objectStore('words');store.get(wordId).onsuccess=e=>{
+   const word=e.target.result;if(!word){tx.abort();return}
+   const next={...word,...updates,usageUpdatedAt:new Date().toISOString(),usageEditedByUser:true};
+   store.put(next);setResult(next);
+  }
+ });
+}
+async function fillMissingUsage(force=false){
+ const source=global.VFUsage;if(!source||!Array.isArray(source.entries))return {updated:0};
+ const marker=await get('settings','usage-pack-version');
+ if(!force&&marker?.version===source.version)return {updated:0};
+ const byWord=new Map(source.entries.map(entry=>[String(entry.word||'').toLowerCase(),entry]));
+ const existing=await all('words');let updated=0;
+ await transact(['words','settings'],'readwrite',tx=>{
+  const store=tx.objectStore('words');
+  for(const word of existing){
+   const entry=byWord.get(String(word.en||'').toLowerCase());if(!entry||word.usageEditedByUser)continue;
+   const next={...word};let changed=false;
+   const phrase=String(entry.example||'').trim();
+   if(!String(next.example||'').trim()&&phrase){next.example=phrase;changed=true}
+   if(!String(next.ex||'').trim()&&!String(next.cnEx||'').trim()&&entry.ex&&entry.cnEx){
+     next.ex=String(entry.ex).trim();next.cnEx=String(entry.cnEx).trim();changed=true
+   }
+   if(changed){store.put(next);updated++}
+  }
+  tx.objectStore('settings').put({id:'usage-pack-version',version:source.version,updatedAt:new Date().toISOString()});
+ });return {updated};
+}
+
 function validateBackup(value){
  if(!value||value.app!=='VocabFlow'||value.formatVersion!==2||value.algorithmVersion!=='fsrs6-local-1')throw new Error('备份版本或算法版本不兼容，已拒绝覆盖');
  if(!value.tables||TABLES.some(n=>!Array.isArray(value.tables[n])))throw new Error('备份缺少必要数据表');
@@ -225,5 +274,5 @@ async function restoreBackup(backup){validateBackup(backup);await open();await t
 });}
 async function exportBackup(){return {app:'VocabFlow',formatVersion:2,algorithmVersion:'fsrs6-local-1',exportedAt:new Date().toISOString(),tables:await snapshot()}}
 async function savePreferences(patch){const prev=await get('settings','preferences');const next={...prev,...patch,id:'preferences'};await put('settings',next);return next}
-global.VFStorage={open,initialize,snapshot,all,get,put,beginSession,completeIntroduction,recordRating,recordCloze,undoLast,importDeck,readCSV,validateBackup,restoreBackup,exportBackup,savePreferences,uuid,DB_NAME,DB_VERSION};
+global.VFStorage={setFavorite,updateWordUsage,fillMissingUsage,open,initialize,snapshot,all,get,put,beginSession,completeIntroduction,recordRating,recordCloze,undoLast,importDeck,readCSV,validateBackup,restoreBackup,exportBackup,savePreferences,uuid,DB_NAME,DB_VERSION};
 })(window);
