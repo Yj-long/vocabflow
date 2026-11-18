@@ -285,3 +285,39 @@ body{color:var(--ink)}
 }
 /* Confirmation follows the full list, encouraging users to scan every new word. */
 .focus-page .intro-confirm{position:static;bottom:auto;}
+
+/* Phase 2.5 Minimal UI — hide non-actionable explanations, compact content */
+.page-heading{margin-bottom:19px;align-items:center}
+.page-title{font-size:clamp(22px,2.3vw,28px)}
+.metric-card{min-height:119px;padding:18px 19px}
+.metric-value{margin:20px 0 0}
+.metric-card .mini-progress{margin-top:13px}
+.panel-head{margin-bottom:16px}
+.sidebar .brand{padding-bottom:22px}
+.start-intro{margin-bottom:15px}
+.action-secondary{margin-top:10px}
+.page-heading .page-desc,.eyebrow,.panel-subtitle,.metric-foot,
+.section-caption,.side-notice,.sidebar-foot,.sidebar .brand small,
+.start-intro p,.action-panel>.subtle-hint,
+.chart-footer>.subtle-hint,.focus-mode-mark,.focus-bottom-note,
+.focus-help>span,.cloze-guide,.cloze-bonus-note,.spelling-prompt>p,
+.word-instruction,.word-tag,.rating-btn small,.intro-hero,.intro-confirm>p,
+.deck-card>p,.setting-row p{display:none!important}
+.settings-grid .panel>p.subtle-hint{display:none!important}
+.settings-grid .panel:has(.backup-actions)>p.subtle-hint:first-of-type{display:block!important;font-size:12px;margin-top:10px}
+.sidebar-spacer{display:none}
+.focus-page .focus-head-spacer{min-width:0}
+.focus-page .focus-head{margin-bottom:10px}
+.focus-page .focus-label{gap:2px}
+.focus-page .focus-help{justify-content:flex-end;margin-top:10px}
+.focus-page .intro-shell{gap:clamp(9px,1.5vh,16px)}
+.focus-page .intro-confirm{border:0;box-shadow:none;background:transparent;padding:2px 0 0;justify-content:flex-end}
+.focus-page .intro-confirm .btn{min-width:210px}
+.focus-page .flash-card>.word{margin-top:0}
+.focus-page .cloze-form .cloze-word{margin-top:0}
+.focus-page .cloze-form .spell-buttons{margin-top:17px}
+@media(max-width:699px),(orientation:portrait) and (min-width:700px) and (max-width:1023px){
+.metric-card{min-height:110px;padding:15px}
+.metric-value{margin:14px 0 0}
+.intro-confirm .btn{width:100%}
+}

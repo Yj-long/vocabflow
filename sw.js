@@ -1,6 +1,6 @@
 /* VocabFlow v2 PWA fix: updateable offline app shell.
    Learning progress stays in IndexedDB and is never cleared here. */
-const CACHE = 'vocabflow-v2-shell-06';
+const CACHE = 'vocabflow-v2-shell-07';
 const CORE = [
   './', './index.html', './styles.css', './fsrs6.js', './storage.js',
   './app.js', './selection.js', './manifest.webmanifest', './icon-192.png', './icon-512.png'
